@@ -1,0 +1,57 @@
+<!doctype html><html lang="uk"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#245ac5"><title>English Trainer</title><style>
+*{box-sizing:border-box}body{font:16px system-ui;background:#eef2f7;color:#17243a;margin:0}main{max-width:680px;margin:35px auto;padding:20px}h1{margin:0;font-size:30px}p{color:#59677a}section{background:white;border:1px solid #dce3ec;border-radius:20px;padding:24px;margin:16px 0}button,input,select,textarea{font:inherit;border:1px solid #c9d4e1;border-radius:10px;padding:12px}button{cursor:pointer;background:#fff;color:#203653}button.primary{background:#245ac5;color:white;border-color:#245ac5}input,textarea{width:100%;margin:12px 0}textarea{min-height:130px}button:disabled{opacity:.45;cursor:default}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.stats{display:flex;justify-content:space-between;gap:10px;font-size:14px}#prompt{font-size:30px;font-weight:700;margin:20px 0}#feedback{min-height:48px;white-space:pre-wrap}.good{color:#167344}.bad{color:#b13333}progress{width:100%;height:10px}label{font-size:14px}details{margin-top:15px}summary{cursor:pointer}@media(max-width:600px){main{margin:0 auto;padding:16px}section{padding:16px}#prompt{font-size:26px}button{min-height:44px}label select{max-width:100%}} </style><main><h1>English Trainer</h1><p>Перекладай, пиши та слухай англійську</p><div class="row"><select id="mode"><option value="all">Усі завдання</option><option value="words">Слова</option><option value="sentences">Речення</option><option value="custom">Мої картки</option></select><button id="reset">Почати заново</button></div><section><div class="stats"><span id="count"></span><span id="score"></span></div><progress id="progress"></progress><p>Переклади англійською</p><div id="prompt"></div><form id="form"><input id="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Напиши англійською…" aria-label="Переклад англійською"><div class="row"><button class="primary" id="check">Перевірити ↵</button><button type="button" id="hint">Підказка</button><button type="button" id="reveal">Показати</button></div></form><p id="feedback" aria-live="polite"></p><div class="row"><button id="listen" disabled>🔊 Прослухати</button><button id="next" disabled>Далі →</button></div></section><section><div class="row"><label>Вимова <select id="accent"><option value="en-US">Американська</option><option value="en-GB">Британська</option></select></label><label>Швидкість <select id="speed"><option value="0.65">Повільна</option><option value="0.85" selected>Помірна</option><option value="1">Звичайна</option></select></label></div><details><summary>Додати власні картки (наприклад, із Quizlet)</summary><p>Один рядок: англійська, потім табуляція або |, потім українська.</p><textarea id="custom" placeholder="I am ready | Я готовий"></textarea><button id="save">Зберегти та тренувати</button><p id="saveStatus"></p></details></section></main><script>
+const $=id=>document.getElementById(id); const words=`father|батько
+car|автомобіль
+park|парк
+ask|запитувати
+hand|рука
+cake|торт
+milk|молоко
+bridge|міст
+bird|птах
+home|дім
+bottle|пляшка
+hot|гарячий
+cold|холодний
+ready|готовий
+my|мій
+your|твій
+his|його
+her|її
+our|наш
+their|їхній
+we|ми
+they|вони
+she|вона
+he|він`;const sentences=`I am ready|Я готовий
+You are ready|Ти готовий
+He is at home|Він удома
+She is happy|Вона щаслива
+We are friends|Ми друзі
+They are here|Вони тут
+It is cold|Холодно
+I was at home|Я був удома
+He was tired|Він був втомлений
+She was here|Вона була тут
+You were right|Ти мав рацію
+We were ready|Ми були готові
+They were at home|Вони були вдома
+This is my car|Це мій автомобіль
+That is your bag|То твоя сумка
+This is his father|Це його батько
+This is her book|Це її книга
+This is our house|Це наш будинок
+These are their books|Це їхні книги
+There is a book on the table|На столі є книга
+There are two cars in the park|У парку є два автомобілі
+There is a bird in the tree|На дереві є птах
+There are three bottles on the table|На столі є три пляшки
+There was a shop here|Тут був магазин
+There were two cars here|Тут було два автомобілі
+I am not tired|Я не втомлений
+She is not at home|Вона не вдома
+They were not ready|Вони не були готові
+He is my brother|Він мій брат
+We are at home|Ми вдома`;function parse(s){return s.split(/\r?\n/).map(l=>l.split(/\t|\|/).map(x=>x.trim())).filter(a=>a.length===2&&a.every(Boolean))}let custom='';try{custom=localStorage.getItem('englishTrainerCustom')||''}catch{}$('custom').value=custom;let deck=[],i=0,right=0,wrong=0,missed=false,done=false,finished=false;const norm=s=>s.toLowerCase().trim().replace(/[.!?]+$/,'').replace(/\s+/g,' ');function stats(){$('count').textContent=finished?'Завершено':`Завдання ${i+1} / ${deck.length}`;$('score').textContent=`✓ ${right}   ·   Помилки: ${wrong}`;$('progress').max=deck.length;$('progress').value=finished?deck.length:i+(done?1:0)}function start(){let m=$('mode').value;deck=parse(m==='words'?words:m==='sentences'?sentences:m==='custom'?custom:words+'\n'+sentences);if(!deck.length){$('mode').value='all';deck=parse(words+'\n'+sentences)}for(let j=deck.length-1;j>0;j--){let k=Math.floor(Math.random()*(j+1));[deck[j],deck[k]]=[deck[k],deck[j]]}i=right=wrong=0;finished=false;show()}function show(){done=missed=false;$('prompt').textContent=deck[i][1];$('answer').value='';$('answer').disabled=false;$('feedback').textContent='';$('feedback').className='';for(const id of ['check','hint','reveal'])$(id).disabled=false;$('next').disabled=$('listen').disabled=true;stats();if(!matchMedia("(pointer:coarse)").matches)$('answer').focus()}function speak(){if(!('speechSynthesis'in window)){$('feedback').textContent+='\nОзвучення не підтримується цим браузером.';return}speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(deck[i][0]);u.lang=$('accent').value;u.rate=Number($('speed').value);let v=speechSynthesis.getVoices().find(v=>v.lang===u.lang)||speechSynthesis.getVoices().find(v=>v.lang.startsWith('en'));if(v)u.voice=v;u.onerror=()=>{$('feedback').textContent+='\nНе вдалося озвучити. Перевір англійський голос у системі.'};speechSynthesis.speak(u)}function complete(reveal){done=true;if(reveal&&!missed){wrong++;missed=true}if(!missed)right++;$('feedback').className=reveal?'bad':'good';$('feedback').textContent=(reveal?'Правильна відповідь: ': 'Правильно! ')+deck[i][0];$('answer').disabled=true;for(const id of ['check','hint','reveal'])$(id).disabled=true;$('next').disabled=$('listen').disabled=false;stats();speak();$('next').focus()}$('form').onsubmit=e=>{e.preventDefault();if(done||finished)return;let a=$('answer').value;if(!a.trim())return;if(norm(a)===norm(deck[i][0]))complete(false);else{if(!missed){wrong++;missed=true} $('feedback').className='bad';$('feedback').textContent='Не зовсім правильно. Спробуй ще раз';stats()}};$('hint').onclick=()=>{$('feedback').className='';$('feedback').textContent=deck[i][0].split(' ').map(w=>w[0]+'•'.repeat(w.length-1)).join(' ')};$('reveal').onclick=()=>complete(true);$('listen').onclick=speak;$('next').onclick=()=>{if(i+1<deck.length){i++;show()}else{finished=true;$('prompt').textContent='Тренування завершено!';$('feedback').textContent=`З першої спроби: ${right} із ${deck.length}. Завдання з помилками або відкритою відповіддю: ${wrong}.`;$('next').disabled=$('listen').disabled=true;stats()}};$('mode').onchange=start;$('reset').onclick=start;$('save').onclick=()=>{let s=$('custom').value;if(!parse(s).length){$('saveStatus').textContent='Додай хоча б одну коректну картку';return}custom=s;try{localStorage.setItem('englishTrainerCustom',s);$('saveStatus').textContent='Картки збережено'}catch{$('saveStatus').textContent='Картки доступні до закриття сторінки'}$('mode').value='custom';start()};start();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(console.warn);
+</script></html>
